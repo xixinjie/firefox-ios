@@ -6,6 +6,18 @@ struct TopSiteItem {
     let urlTitle: String
     let faviconURL: NSURL?
     let siteURL: NSURL
+    let faviconImagePath: String? // For default suggested top sites
+
+    init(urlTitle: String, faviconURL: NSURL?, siteURL: NSURL) {
+        self.init(urlTitle: urlTitle, faviconURL: faviconURL, siteURL: siteURL, faviconImagePath: nil)
+    }
+
+    init(urlTitle: String, faviconURL: NSURL?, siteURL: NSURL, faviconImagePath: String?) {
+        self.urlTitle = urlTitle
+        self.siteURL = siteURL
+        self.faviconURL = faviconURL
+        self.faviconImagePath = faviconImagePath
+    }
 }
 
 extension TopSiteItem: Equatable {}
@@ -108,21 +120,30 @@ class TopSiteItemCell: UICollectionViewCell {
                 self.imageView.image = FaviconFetcher.getDefaultFavicon(url)
                 return
             }
+            self.setBackgroundColorWithImage(img)
+        }
+    }
 
-            // Get dominant colors using a scaled 25/25 image.
-            img.getColors(CGSize(width: 25, height: 25)) { colors in
-                //In cases where the background is black/white. Force the background color to a different color
-                let colorArr = [colors.backgroundColor, colors.detailColor, colors.primaryColor].filter { !$0.isBlackOrWhite }
-                self.contentView.backgroundColor = colorArr.isEmpty ? UIColor.lightGrayColor() : colorArr.first
-            }
+    // Get dominant colors using a scaled 25/25 image.
+    private func setBackgroundColorWithImage(img: UIImage) {
+        img.getColors(CGSize(width: 25, height: 25)) { colors in
+            //In cases where the background is black/white. Force the background color to a different color
+            let colorArr = [colors.backgroundColor, colors.detailColor, colors.primaryColor].filter { !$0.isBlackOrWhite }
+            self.contentView.backgroundColor = colorArr.isEmpty ? UIColor.lightGrayColor() : colorArr.first
         }
     }
 
     func configureWithTopSiteItem(site: TopSiteItem) {
         titleLabel.text = site.urlTitle
         guard let favURL = site.faviconURL else {
-            contentView.backgroundColor = UIColor.lightGrayColor()
-            imageView.image = FaviconFetcher.getDefaultFavicon(site.siteURL)
+            if let imagePath = site.faviconImagePath, let img = UIImage(named: imagePath)  {
+                imageView.image = img
+                self.setBackgroundColorWithImage(img)
+
+            } else {
+                contentView.backgroundColor = UIColor.lightGrayColor()
+                imageView.image = FaviconFetcher.getDefaultFavicon(site.siteURL)
+            }
             return
         }
         setImageWithURL(favURL)
@@ -202,7 +223,6 @@ class ASHorizontalScrollCell: UITableViewCell {
             make.top.equalTo(collectionView.snp_bottom)
             make.centerX.equalTo(self.snp_centerX)
         }
-
     }
 
     override func layoutSubviews() {
