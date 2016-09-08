@@ -1,17 +1,7 @@
 import Foundation
 import Shared
 import WebImage
-
-struct TopSiteItem {
-    let urlTitle: String
-    let faviconURL: NSURL?
-    let siteURL: NSURL
-}
-
-extension TopSiteItem: Equatable {}
-func ==(lhs: TopSiteItem, rhs: TopSiteItem) -> Bool {
-    return lhs.urlTitle == rhs.urlTitle && lhs.faviconURL == rhs.faviconURL && lhs.siteURL == rhs.siteURL
-}
+import Storage
 
 struct TopSiteCellUX {
     static let TitleInsetPercent: CGFloat = 0.66
@@ -125,8 +115,6 @@ class TopSiteItemCell: UICollectionViewCell {
                 self.imageView.image = FaviconFetcher.getDefaultFavicon(url)
                 return
             }
-
-            // Get dominant colors using a scaled 25/25 image.
             img.getColors(CGSize(width: 25, height: 25)) { colors in
                 //In cases where the background is black/white. Force the background color to a different color
                 let colorArr = [colors.backgroundColor, colors.detailColor, colors.primaryColor].filter { !$0.isBlackOrWhite }
@@ -135,14 +123,20 @@ class TopSiteItemCell: UICollectionViewCell {
         }
     }
 
-    func configureWithTopSiteItem(site: TopSiteItem) {
-        titleLabel.text = site.urlTitle
-        guard let favURL = site.faviconURL else {
-            contentView.backgroundColor = UIColor.lightGrayColor()
-            imageView.image = FaviconFetcher.getDefaultFavicon(site.siteURL)
-            return
+    func configureWithTopSiteItem(site: Site) {
+        titleLabel.text = site.tileURL.extractDomainName()
+        if let suggestedSite = site as? SuggestedSite {
+            let img = UIImage(named: suggestedSite.faviconImagePath!)
+            imageView.image = img
+            contentView.backgroundColor = suggestedSite.backgroundColor
+        } else {
+            guard let favURL = site.faviconURL else {
+                contentView.backgroundColor = UIColor.lightGrayColor()
+                imageView.image = FaviconFetcher.getDefaultFavicon(site.tileURL)
+                return
+            }
+            setImageWithURL(favURL)
         }
-        setImageWithURL(favURL)
     }
 
 }
@@ -219,7 +213,6 @@ class ASHorizontalScrollCell: UITableViewCell {
             make.top.equalTo(collectionView.snp_bottom)
             make.centerX.equalTo(self.snp_centerX)
         }
-
     }
 
     override func layoutSubviews() {
@@ -387,7 +380,7 @@ protocol ASHorizontalLayoutDelegate {
 
 class ASHorizontalScrollCellManager: NSObject, UICollectionViewDelegate, UICollectionViewDataSource, ASHorizontalLayoutDelegate {
 
-    var content: [TopSiteItem] = []
+    var content: [Site] = []
 
     var urlPressedHandler: ((NSURL) -> Void)?
     var pageChangedHandler: ((CGFloat) -> Void)?
@@ -433,7 +426,7 @@ class ASHorizontalScrollCellManager: NSObject, UICollectionViewDelegate, UIColle
 
     func collectionView(collectionView: UICollectionView, didSelectItemAtIndexPath indexPath: NSIndexPath) {
         let contentItem = content[indexPath.row]
-        urlPressedHandler?(contentItem.siteURL)
+        urlPressedHandler?(contentItem.tileURL)
     }
 
     func scrollViewDidScroll(scrollView: UIScrollView) {
@@ -445,7 +438,7 @@ class ASHorizontalScrollCellManager: NSObject, UICollectionViewDelegate, UIColle
         //Show a context menu with options for the topsite
         let contentItem = content[indexPath.row]
 
-        let alertController = UIAlertController(title: contentItem.siteURL.absoluteString, message: nil, preferredStyle: .ActionSheet)
+        let alertController = UIAlertController(title: contentItem.tileURL.absoluteString, message: nil, preferredStyle: .ActionSheet)
 
         let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Label for Cancel button"), style: .Cancel, handler: nil)
         alertController.addAction(cancelAction)
@@ -460,7 +453,7 @@ class ASHorizontalScrollCellManager: NSObject, UICollectionViewDelegate, UIColle
 
     func collectionView(collectionView: UICollectionView, deleteItemAtIndexPath indexPath: NSIndexPath) {
         let contentItem = self.content[indexPath.row]
-        self.deleteItemHandler?(contentItem.siteURL)
+        self.deleteItemHandler?(contentItem.tileURL)
     }
 
 }
