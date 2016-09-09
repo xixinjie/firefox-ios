@@ -22,6 +22,10 @@ public class SuggestedSite: Site {
         super.init(url: data.url, title: data.title, bookmarked: nil)
         self.icon = Favicon(url: data.faviconUrl, date: NSDate(), type: .Icon)
     }
+
+    public var faviconImagePath: String? {
+        return wordmark.url.stringByReplacingOccurrencesOfString("asset://", withString: "")
+    }
 }
 
 public let SuggestedSites: SuggestedSitesCursor = SuggestedSitesCursor()

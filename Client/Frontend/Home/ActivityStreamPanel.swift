@@ -10,6 +10,8 @@ import WebImage
 import XCGLogger
 
 private let log = Logger.browserLogger
+private let DefaultSuggestedSitesKey = "topSites.deletedSuggestedSites"
+
 
 // MARK: -  Lifecycle
 struct ASPanelUX {
@@ -30,7 +32,7 @@ class ActivityStreamPanel: UITableViewController, HomePanel {
     private let profile: Profile
     private let topSitesManager = ASHorizontalScrollCellManager()
 
-    var topSites: [TopSiteItem] = []
+    var topSites: [Site] = []
     var history: [Site] = []
 
     init(profile: Profile) {
@@ -247,18 +249,26 @@ extension ActivityStreamPanel {
         }
     }
 
+    /*
+     sites, defaultsites
+     take sites and map replacing any that match defaultsites
+     filter the defaultsites to remove any dupes. 
+     append the defaultsites to the sites
+ */
+
     private func reloadTopSites() {
         invalidateTopSites().uponQueue(dispatch_get_main_queue()) { result in
-            let sites = result.successValue ?? []
-
-            // Merge default topsites with a user's topsites. Favor default topsites as they have better icons.
+            // Merge default topsites with a user's topsites. Replace any topsites that are also in the default topsites
             let defaultSites = self.defaultTopSites()
-            let deDuped = sites.filter {!defaultSites.contains($0, f: {
-                return $0.urlTitle.lowercaseString == $1.urlTitle.lowercaseString
+            let sites = (result.successValue ?? []).map { site in
+                return defaultSites.find { $0.tileURL.extractDomainName() == site.tileURL.extractDomainName() } ?? site
+            }
+
+            let mergedSites = sites + defaultSites.filter {!sites.contains($0, f: {
+                return $0.tileURL.extractDomainName() == $1.tileURL.extractDomainName()
             })}
 
-            // Add the user's topsites before the default top sites.
-            self.topSites = deDuped + defaultSites
+            self.topSites = mergedSites.count > ASPanelUX.topSitesCacheSize ? Array(mergedSites[0..<ASPanelUX.topSitesCacheSize]) : mergedSites
             self.topSitesManager.currentTraits = self.view.traitCollection
             self.topSitesManager.content = self.topSites
             self.topSitesManager.urlPressedHandler = { [unowned self] url in
@@ -274,11 +284,11 @@ extension ActivityStreamPanel {
         }
     }
 
-    private func invalidateTopSites() -> Deferred<Maybe<[TopSiteItem]>> {
+    private func invalidateTopSites() -> Deferred<Maybe<[Site]>> {
         let frecencyLimit = ASPanelUX.topSitesCacheSize
         return self.profile.history.updateTopSitesCacheIfInvalidated() >>== { dirty in
             return self.profile.history.getTopSitesWithLimit(frecencyLimit) >>== { topSites in
-                return deferMaybe(topSites.flatMap(self.siteToItem))
+                return deferMaybe(topSites.asArray())
             }
         }
     }
@@ -287,9 +297,8 @@ extension ActivityStreamPanel {
         guard let host = siteURL.normalizedHost() else {
             return
         }
-
         // if the default top sites contains the siteurl. also wipe it from default suggested sites.
-        if defaultTopSites().filter({$0.siteURL.absoluteString != siteURL.absoluteString}).isEmpty == false {
+        if defaultTopSites().filter({$0.tileURL.absoluteString != siteURL.absoluteString}).isEmpty == false {
             deleteTileForSuggestedSite(siteURL.absoluteString)
         }
         profile.history.removeHostFromTopSites(host).uponQueue(dispatch_get_main_queue()) { result in
@@ -299,31 +308,15 @@ extension ActivityStreamPanel {
     }
 
     private func deleteTileForSuggestedSite(siteURL: String) {
-        var deletedSuggestedSites = profile.prefs.arrayForKey("topSites.deletedSuggestedSites") as? [String] ?? []
+        var deletedSuggestedSites = profile.prefs.arrayForKey(DefaultSuggestedSitesKey) as? [String] ?? []
         deletedSuggestedSites.append(siteURL)
-        profile.prefs.setObject(deletedSuggestedSites, forKey: "topSites.deletedSuggestedSites")
+        profile.prefs.setObject(deletedSuggestedSites, forKey: DefaultSuggestedSitesKey)
     }
 
-    private func siteToItem(site: Site?) -> TopSiteItem? {
-        guard let site = site else {
-            return nil
-        }
-        guard let faviconURL = site.icon?.url else {
-            return TopSiteItem(urlTitle: site.tileURL.extractDomainName(), faviconURL: nil, siteURL: site.tileURL)
-        }
-        return TopSiteItem(urlTitle: site.tileURL.extractDomainName(), faviconURL: NSURL(string: faviconURL)!, siteURL: site.tileURL)
-    }
-
-    private func defaultTopSites() -> [TopSiteItem] {
+    private func defaultTopSites() -> [Site] {
         let suggested = SuggestedSites.asArray()
-        let deleted = profile.prefs.arrayForKey("topSites.deletedSuggestedSites") as? [String] ?? []
-
-        return suggested.map {(siteA) -> TopSiteItem in
-            let asset =  siteA.wordmark.url.stringByReplacingOccurrencesOfString("asset://suggestedsites", withString: "as")
-            return TopSiteItem(urlTitle: siteA.title, faviconURL: nil, siteURL: siteA.tileURL, faviconImagePath: asset)
-        }.filter {
-            return deleted.indexOf($0.siteURL.absoluteString) == .None
-        }
+        let deleted = profile.prefs.arrayForKey(DefaultSuggestedSitesKey) as? [String] ?? []
+        return suggested.filter({deleted.indexOf($0.tileURL.absoluteString) == .None})
     }
 }
 
