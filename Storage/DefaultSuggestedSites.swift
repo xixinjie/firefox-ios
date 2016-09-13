@@ -5,6 +5,35 @@
 import Foundation
 
 public class DefaultSuggestedSites {
+
+    // Maps default urls for different locales
+    public static let localeMap = [
+        "https://www.amazon.com/" : [
+            "as": "https://www.amazon.in/",
+            "cy": "https://www.amazon.co.uk/",
+            "da": "https://www.amazon.co.uk/",
+            "de": "https://www.amazon.de/",
+            "dsb": "https://www.amazon.de",
+            "en_CA": "https://www.amazon.ca/",
+            "fr_CA": "https://www.amazon.ca/",
+            "en_GB": "https://www.amazon.co.uk/",
+            "et": "https://www.amazon.co.uk/",
+            "ff": "https://www.amazon.fr/",
+            "ga-IE": "https://www.amazon.co.uk/",
+            "gu-IN": "https://www.amazon.in/",
+            "hi-IN": "https://www.amazon.in/",
+            "hsb": "https://www.amazon.de/",
+            "ja": "https://www.amazon.co.jp/",
+            "kn": "https://www.amazon.in/",
+            "mr": "https://www.amazon.in/",
+            "or": "https://www.amazon.in/",
+            "sq": "https://www.amazon.co.uk/",
+            "ta": "https://www.amazon.in/",
+            "te": "https://www.amazon.in/",
+            "ur": "https://www.amazon.in/",
+        ]
+    ]
+
     public static let sites = [
         "default": [
             SuggestedSiteData(
