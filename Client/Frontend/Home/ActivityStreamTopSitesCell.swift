@@ -130,7 +130,7 @@ class TopSiteItemCell: UICollectionViewCell {
             imageView.image = img
             contentView.backgroundColor = suggestedSite.backgroundColor
         } else {
-            guard let favURL = site.faviconURL else {
+            guard let url = site.icon?.url, favURL = NSURL(string:url) else {
                 contentView.backgroundColor = UIColor.lightGrayColor()
                 imageView.image = FaviconFetcher.getDefaultFavicon(site.tileURL)
                 return
@@ -426,7 +426,10 @@ class ASHorizontalScrollCellManager: NSObject, UICollectionViewDelegate, UIColle
 
     func collectionView(collectionView: UICollectionView, didSelectItemAtIndexPath indexPath: NSIndexPath) {
         let contentItem = content[indexPath.row]
-        urlPressedHandler?(contentItem.tileURL)
+        guard let url = NSURL(string: contentItem.url) else {
+            return
+        }
+        urlPressedHandler?(url)
     }
 
     func scrollViewDidScroll(scrollView: UIScrollView) {
@@ -438,7 +441,7 @@ class ASHorizontalScrollCellManager: NSObject, UICollectionViewDelegate, UIColle
         //Show a context menu with options for the topsite
         let contentItem = content[indexPath.row]
 
-        let alertController = UIAlertController(title: contentItem.tileURL.absoluteString, message: nil, preferredStyle: .ActionSheet)
+        let alertController = UIAlertController(title: contentItem.url, message: nil, preferredStyle: .ActionSheet)
 
         let cancelAction = UIAlertAction(title: NSLocalizedString("Cancel", comment: "Label for Cancel button"), style: .Cancel, handler: nil)
         alertController.addAction(cancelAction)
