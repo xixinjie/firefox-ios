@@ -260,15 +260,18 @@ extension ActivityStreamPanel {
         invalidateTopSites().uponQueue(dispatch_get_main_queue()) { result in
             // Merge default topsites with a user's topsites. Replace any topsites that are also in the default topsites
             let defaultSites = self.defaultTopSites()
-            let sites = (result.successValue ?? []).map { site in
-                return defaultSites.find { $0.tileURL.extractDomainName() == site.tileURL.extractDomainName() } ?? site
+            let mySites = (result.successValue ?? [])
+
+            let mergedSites = mySites.union(defaultSites, f: { (site) -> String in
+                return NSURL(string: site.url)?.extractDomainName() ?? ""
+            })
+
+            let newSites = mergedSites.map { site -> Site in
+                let domain = NSURL(string: site.url)?.extractDomainName() ?? ""
+                return defaultSites.find { $0.title.lowercaseString == domain } ?? site
             }
 
-            let mergedSites = sites + defaultSites.filter {!sites.contains($0, f: {
-                return $0.tileURL.extractDomainName() == $1.tileURL.extractDomainName()
-            })}
-
-            self.topSites = mergedSites.count > ASPanelUX.topSitesCacheSize ? Array(mergedSites[0..<ASPanelUX.topSitesCacheSize]) : mergedSites
+            self.topSites = newSites.count > ASPanelUX.topSitesCacheSize ? Array(newSites[0..<ASPanelUX.topSitesCacheSize]) : newSites
             self.topSitesManager.currentTraits = self.view.traitCollection
             self.topSitesManager.content = self.topSites
             self.topSitesManager.urlPressedHandler = { [unowned self] url in
@@ -298,7 +301,7 @@ extension ActivityStreamPanel {
             return
         }
         // if the default top sites contains the siteurl. also wipe it from default suggested sites.
-        if defaultTopSites().filter({$0.tileURL.absoluteString != siteURL.absoluteString}).isEmpty == false {
+        if defaultTopSites().filter({$0.url != siteURL.absoluteString}).isEmpty == false {
             deleteTileForSuggestedSite(siteURL.absoluteString)
         }
         profile.history.removeHostFromTopSites(host).uponQueue(dispatch_get_main_queue()) { result in
@@ -316,7 +319,7 @@ extension ActivityStreamPanel {
     private func defaultTopSites() -> [Site] {
         let suggested = SuggestedSites.asArray()
         let deleted = profile.prefs.arrayForKey(DefaultSuggestedSitesKey) as? [String] ?? []
-        return suggested.filter({deleted.indexOf($0.tileURL.absoluteString) == .None})
+        return suggested.filter({deleted.indexOf($0.url) == .None})
     }
 }
 

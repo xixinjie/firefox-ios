@@ -86,10 +86,5 @@ public class Site: Identifiable {
         self.bookmarked = bookmarked
     }
 
-    // Helper property to quickly get the favicon url
-    public var faviconURL: NSURL? {
-        return icon?.url != nil ? NSURL(string: (icon?.url)!) : nil
-    }
-
 }
 
